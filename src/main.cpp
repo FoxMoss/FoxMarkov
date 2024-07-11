@@ -42,6 +42,14 @@ int main(int argc, char *argv[]) {
                                       argparse::default_arguments::help);
   arg_parser.add_argument("--discordmate").required();
 
+  argparse::ArgumentParser generate_parser("generate");
+  generate_parser.add_argument("--perfect").nargs(0).default_value(false);
+  argparse::ArgumentParser stenography_parser("stenography");
+  stenography_parser.add_argument("analyze").required();
+
+  arg_parser.add_subparser(generate_parser);
+  arg_parser.add_subparser(stenography_parser);
+
   try {
     arg_parser.parse_args(argc, argv);
   } catch (const std::exception &err) {
@@ -56,12 +64,27 @@ int main(int argc, char *argv[]) {
   }
   Chain chain(contents);
 
-  std::optional<std::string> suggestion = "\n";
-  while ((suggestion = chain.Suggest(suggestion.value())).has_value() &&
-         suggestion != "\n") {
-    printf("%s", suggestion.value().c_str());
+  if (arg_parser.is_subcommand_used("generate")) {
+    std::optional<std::string> suggestion = "\n";
+    while ((suggestion = chain.Suggest(suggestion.value(),
+                                       generate_parser.is_used("--perfect")))
+               .has_value() &&
+           suggestion != "\n") {
+      printf("%s", suggestion.value().c_str());
+    }
+    printf("\n");
+  } else if (arg_parser.is_subcommand_used("stenography")) {
+    auto proccesed = proccessLine(stenography_parser.get("analyze"));
+    float totalWeight = 0;
+    uint weightLength = 0;
+    for (auto iter = proccesed.begin(); iter != proccesed.end() - 1; iter++) {
+      totalWeight +=
+          chain.GetNormalizedWeight(*iter.base(), *(iter + 1).base());
+      weightLength++;
+    }
+    printf("Statement matches weights %f/%f\n", totalWeight / weightLength,
+           1.0);
   }
-  printf("\n");
 
   return 0;
 }

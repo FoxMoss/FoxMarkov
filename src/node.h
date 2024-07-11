@@ -17,6 +17,8 @@ public:
 private:
 };
 
+std::vector<std::string> proccessLine(std::string);
+
 class Chain {
 public:
   Chain(std::vector<std::string> string_list) {
@@ -66,24 +68,33 @@ public:
     }
   };
 
-  std::optional<std::string> Suggest(std::string token) {
+  std::optional<std::string> Suggest(std::string token, bool perfect = true) {
     std::map<std::string, Node *>::iterator node;
     if ((node = nodes.find(token)) == nodes.end())
       return {};
 
     srand(time(NULL));
-    uint totalWeight = 0;
+    uint total_weight = 0;
+    uint top_weight = 0;
+    Node *top_weight_node;
     for (auto iter = node->second->children.begin();
          iter != node->second->children.end(); iter++) {
-      totalWeight += iter->second;
+      total_weight += iter->second;
+      if (perfect && iter->second > top_weight) {
+        top_weight = iter->second;
+        top_weight_node = iter->first;
+      }
     }
-    uint totalRand = rand() % totalWeight;
+    if (perfect) {
+      return top_weight_node->token;
+    }
+    uint total_rand = rand() % total_weight;
     for (auto iter = node->second->children.begin();
          iter != node->second->children.end(); iter++) {
-      if (totalRand < iter->second) {
+      if (total_rand < iter->second) {
         return iter->first->token;
       }
-      totalRand -= iter->second;
+      total_rand -= iter->second;
     }
     return {};
   }
@@ -93,19 +104,19 @@ public:
     if ((node = nodes.find(start_token)) == nodes.end())
       return 0;
     std::map<std::string, Node *>::iterator searched_node;
-    if ((searched_node = nodes.find(start_token)) == nodes.end())
+    if ((searched_node = nodes.find(child_token)) == nodes.end())
       return 0;
 
-    float totalWeight = 0;
+    float total_weight = 0;
     for (auto iter = node->second->children.begin();
          iter != node->second->children.end(); iter++) {
-      totalWeight += iter->second;
+      total_weight += iter->second;
     }
 
     auto connection = node->second->children.find(searched_node->second);
     if (connection == node->second->children.end())
       return 0;
-    return connection->second / totalWeight;
+    return connection->second / total_weight;
   }
 
 private:

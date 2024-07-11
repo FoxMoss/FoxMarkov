@@ -1,5 +1,6 @@
 add_executable(foxkov
  main.cpp 
+ node.cpp
 )
 
 include(FetchContent)
