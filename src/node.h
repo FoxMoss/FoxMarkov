@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstddef>
 #include <cstdlib>
 #include <ctime>
 #include <map>
@@ -6,6 +7,7 @@
 #include <string>
 #include <sys/types.h>
 #include <vector>
+
 class Node {
 public:
   Node(std::string cToken) { token = cToken; }
@@ -17,28 +19,16 @@ public:
 private:
 };
 
-std::vector<std::string> proccessLine(std::string);
+std::vector<std::string> proccessLine(std::string,
+                                      std::vector<std::string> * = NULL);
+
+std::vector<std::string> proccessLineList(std::vector<std::string> line_list);
 
 class Chain {
 public:
   Chain(std::vector<std::string> string_list) {
-    std::vector<std::string> source = {};
     // proccess line list to be chunked into tokens
-    for (auto line : string_list) {
-      source.push_back("\n");
-      std::string token = "";
-      for (auto ch : line) {
-        token.push_back(ch);
-        if (ch == ' ') {
-          source.push_back(token);
-          token = "";
-        }
-      }
-      if (!token.empty()) {
-        token.push_back(' ');
-        source.push_back(token);
-      }
-    }
+    std::vector<std::string> source = proccessLineList(string_list);
 
     // generate nodes in graph
     for (auto iter = source.begin(); iter != source.end(); iter++) {
