@@ -1,3 +1,4 @@
+#pragma once
 #include <algorithm>
 #include <cstddef>
 #include <cstdlib>
@@ -17,6 +18,11 @@ public:
   std::string token;
 
 private:
+};
+
+struct Buffer {
+  char *data;
+  size_t size;
 };
 
 std::vector<std::string> proccessLine(std::string,
@@ -63,7 +69,6 @@ public:
     if ((node = nodes.find(token)) == nodes.end())
       return {};
 
-    srand(time(NULL));
     uint total_weight = 0;
     uint top_weight = 0;
     Node *top_weight_node;

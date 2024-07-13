@@ -16,13 +16,8 @@
 #include <unistd.h>
 #include <vector>
 
-#define PROGRAM_NAME "term-gpu"
-#define TRY_UNWRAP(stmt)                                                       \
-  try {                                                                        \
-    stmt                                                                       \
-  } catch (const std::exception e) {                                           \
-    unwrap_exit(-1, e.what());                                                 \
-  }
+#define PROGRAM_NAME "foxkov"
+#define TRY_UNWRAP(stmt) stmt
 
 enum RETURN_TYPE { RETURN_POSITIVE, RETURN_ZERO };
 
@@ -56,8 +51,14 @@ int main(int argc, char *argv[]) {
   stenography_parser.add_argument("--csv").required();
   stenography_parser.add_argument("--column").default_value("Content");
 
+  argparse::ArgumentParser cleanup_parser("cleanup");
+  cleanup_parser.add_argument("--matching-column").default_value("Author");
+  cleanup_parser.add_argument("--matching-data").required();
+  cleanup_parser.add_argument("--output").default_value("cleanup.csv");
+
   arg_parser.add_subparser(generate_parser);
   arg_parser.add_subparser(stenography_parser);
+  arg_parser.add_subparser(cleanup_parser);
 
   try {
     arg_parser.parse_args(argc, argv);
@@ -65,51 +66,86 @@ int main(int argc, char *argv[]) {
     unwrap_exit(-1, err.what());
   }
 
-  csv::CSVReader reader(arg_parser.get("--csv"));
-  std::vector<std::string> contents = {};
-  csv::CSVRow row;
-  while (reader.read_row(row)) {
-    TRY_UNWRAP(contents.push_back(row[arg_parser.get("--column")].get());)
-  }
-  Chain chain(contents);
+  try {
+    if (!arg_parser.is_subcommand_used("cleanup")) {
+      csv::CSVReader reader(arg_parser.get("--csv"));
 
-  if (arg_parser.is_subcommand_used("generate")) {
-    std::optional<std::string> suggestion = "\n";
-    while ((suggestion = chain.Suggest(suggestion.value(),
-                                       generate_parser.is_used("--perfect")))
-               .has_value() &&
-           suggestion != "\n") {
-      printf("%s", suggestion.value().c_str());
-    }
-    printf("\n");
-  } else if (arg_parser.is_subcommand_used("stenography")) {
-    csv::CSVReader sten_reader(stenography_parser.get("--csv"));
-
-    float total_weight = 0;
-    uint weight_length = 0;
-    while (sten_reader.read_row(row)) {
-      std::vector<std::string> proccesed;
-      TRY_UNWRAP(proccesed = proccessLine(
-                     row[stenography_parser.get("--column")].get());)
-
-      float row_weight = 0;
-      uint row_weight_length = 0;
-
-      for (auto iter = proccesed.begin(); iter != proccesed.end() - 1; iter++) {
-        row_weight +=
-            chain.GetNormalizedWeight(*iter.base(), *(iter + 1).base());
-        row_weight_length++;
+      std::vector<std::string> contents = {};
+      csv::CSVRow row;
+      while (reader.read_row(row)) {
+        TRY_UNWRAP(contents.push_back(row[arg_parser.get("--column")].get());)
       }
+      Chain chain(contents);
 
-      if (row_weight_length == 0) {
-        continue;
+      if (arg_parser.is_subcommand_used("generate")) {
+        std::optional<std::string> suggestion = "\n";
+        while ((suggestion = chain.Suggest(
+                    suggestion.value(), generate_parser.is_used("--perfect")))
+                   .has_value() &&
+               suggestion != "\n") {
+          printf("%s", suggestion.value().c_str());
+        }
+        printf("\n");
+      } else if (arg_parser.is_subcommand_used("stenography")) {
+        csv::CSVReader sten_reader(stenography_parser.get("--csv"));
+
+        float total_weight = 0;
+        uint weight_length = 0;
+        while (sten_reader.read_row(row)) {
+          std::vector<std::string> proccesed;
+          TRY_UNWRAP(proccesed = proccessLine(
+                         row[stenography_parser.get("--column")].get());)
+
+          float row_weight = 0;
+          uint row_weight_length = 0;
+
+          for (auto iter = proccesed.begin(); iter != proccesed.end() - 1;
+               iter++) {
+            row_weight +=
+                chain.GetNormalizedWeight(*iter.base(), *(iter + 1).base());
+            row_weight_length++;
+          }
+
+          if (row_weight_length == 0) {
+            continue;
+          }
+
+          total_weight += row_weight / row_weight_length;
+          weight_length++;
+        }
+        printf("Contents of %s matches weights %f/%f\n",
+               stenography_parser.get("--csv").c_str(),
+               total_weight / weight_length, 1.0);
       }
-
-      total_weight += row_weight / row_weight_length;
-      weight_length++;
     }
-    printf("Other source matches weights %f/%f\n", total_weight / weight_length,
-           1.0);
+    if (arg_parser.is_subcommand_used("cleanup")) {
+      std::ofstream output_file(cleanup_parser.get("--output"));
+      csv::CSVReader reader(arg_parser.get("--csv"));
+      auto writer = csv::make_csv_writer(output_file);
+      writer << reader.get_col_names();
+      csv::CSVRow row;
+      TRY_UNWRAP(
+          // the csv libary is shit with error handling so im just wrapping this
+          // in a try catch
+          for (csv::CSVRow row
+               : reader) {
+            // check if row should be included
+            if (row[cleanup_parser.get("--matching-column")].get() ==
+                cleanup_parser.get("--matching-data")) {
+
+              std::vector<std::string> row_data = {};
+
+              for (csv::CSVField field : row) {
+                row_data.push_back(field.get<>());
+              }
+
+              writer << row_data;
+            }
+          })
+      output_file.close();
+    }
+  } catch (const std::exception &err) {
+    unwrap_exit(-1, err.what());
   }
 
   return 0;
