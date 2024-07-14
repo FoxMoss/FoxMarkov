@@ -8,6 +8,7 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,6 +21,16 @@
 
 #define PROGRAM_NAME "foxkov"
 #define TRY_UNWRAP(stmt) stmt
+#define ADD_HELP(arg_parser)                                                   \
+  arg_parser.add_argument("--help", "-h")                                      \
+      .action([&](const auto & /*unused*/) {                                   \
+        std::cout << arg_parser.help().str();                                  \
+        exit(1);                                                               \
+      })                                                                       \
+      .default_value(false)                                                    \
+      .help("Shows help message and exits")                                    \
+      .implicit_value(true)                                                    \
+      .nargs(0);
 
 enum RETURN_TYPE { RETURN_POSITIVE, RETURN_ZERO };
 
@@ -43,29 +54,69 @@ void unwrap_exit(int exit_value, const char *exit_str,
 int main(int argc, char *argv[]) {
   srand(time(NULL));
   argparse::ArgumentParser arg_parser(PROGRAM_NAME, "",
-                                      argparse::default_arguments::help);
-  arg_parser.add_argument("csv").required();
-  arg_parser.add_argument("--column").default_value("Content");
+                                      argparse::default_arguments::none);
+  arg_parser.add_argument("--csv").help(
+      "The CSV from which the chain will be generated.");
+  arg_parser.add_argument("--column")
+      .default_value("Content")
+      .help("The column of the CSV of which will used for chain generation, "
+            "all other columns will be ignored.");
 
-  argparse::ArgumentParser generate_parser("generate");
-  generate_parser.add_argument("--perfect").nargs(0).default_value(false);
-  argparse::ArgumentParser stenography_parser("stenography");
-  stenography_parser.add_description("Reverse stenography identifies how well "
-                                     "another csv matches the markov chain.");
-  stenography_parser.add_argument("csv").remaining().required();
-  stenography_parser.add_argument("--column").default_value("Content");
-  stenography_parser.add_argument("--overview-log").default_value("");
-  stenography_parser.add_argument("--detailed-log").default_value("");
+  argparse::ArgumentParser generate_parser("generate", "",
+                                           argparse::default_arguments::none);
+  ADD_HELP(generate_parser);
+  generate_parser.add_argument("--perfect")
+      .nargs(0)
+      .default_value(false)
+      .help("Traverses only the most weighted path, often leading to an "
+            "infinite loop.");
+  generate_parser.add_description("Traverse the chain");
 
-  argparse::ArgumentParser cleanup_parser("cleanup");
-  cleanup_parser.add_argument("--matching-column").default_value("Author");
-  cleanup_parser.add_argument("--matching-data").required();
+  argparse::ArgumentParser stenography_parser(
+      "stenography", "", argparse::default_arguments::none);
+  ADD_HELP(stenography_parser);
+  stenography_parser.add_description(
+      "Identify similarity between data and the chain");
+  stenography_parser.add_argument("csv").remaining().help(
+      "The CSV(s) that will be compared to the chain.");
+  stenography_parser.add_argument("--column")
+      .default_value("Content")
+      .help("The column of the CSV of which will used for chain comparision, "
+            "all other columns will be ignored.");
+  ;
+  stenography_parser.add_argument("--overview-log")
+      .default_value("")
+      .help("Creates a CSV of the targets and their average weight.");
+  stenography_parser.add_argument("--detailed-log")
+      .default_value("")
+      .help("Creates a CSV of all targets with their individual line weight "
+            "averages.");
+
+  argparse::ArgumentParser cleanup_parser("cleanup", "",
+                                          argparse::default_arguments::none);
+  ADD_HELP(cleanup_parser);
+  cleanup_parser.add_description("Seperate individual targets into a new CSV");
+  cleanup_parser.add_argument("--matching-column")
+      .default_value("Author")
+      .help("The column from which a match will be derived.");
+  cleanup_parser.add_argument("--matching-data")
+      .help("The data the column needs to match for it to be included.");
   cleanup_parser.add_argument("--output").default_value("cleanup.csv");
 
   arg_parser.add_subparser(generate_parser);
   arg_parser.add_subparser(stenography_parser);
   arg_parser.add_subparser(cleanup_parser);
 
+  arg_parser.add_description(
+      "Markov chains are models that encode probability. This project creates "
+      "Markov chains out of text to generate probabilities of individuals and "
+      "groups, and provides tools to analyze them.");
+  ADD_HELP(arg_parser);
+
+  if (argc == 1) {
+    std::cout << arg_parser.help().str();
+    exit(1);
+  }
   try {
     arg_parser.parse_args(argc, argv);
   } catch (const std::exception &err) {
@@ -74,7 +125,7 @@ int main(int argc, char *argv[]) {
 
   try {
     if (!arg_parser.is_subcommand_used("cleanup")) {
-      csv::CSVReader reader(arg_parser.get("csv"));
+      csv::CSVReader reader(arg_parser.get("--csv"));
 
       std::vector<std::string> contents = {};
       csv::CSVRow row;
@@ -170,7 +221,7 @@ int main(int argc, char *argv[]) {
           auto writer = csv::make_csv_writer(output_file);
           writer << std::vector<std::string>{"Filename", "Weight"};
           for (auto result : overview) {
-            if (result[0] == arg_parser.get("csv")) {
+            if (result[0] == arg_parser.get("--csv")) {
               result[0] = "Control";
             }
             writer << result;
@@ -183,7 +234,7 @@ int main(int argc, char *argv[]) {
     }
     if (arg_parser.is_subcommand_used("cleanup")) {
       std::ofstream output_file(cleanup_parser.get("--output"));
-      csv::CSVReader reader(arg_parser.get("csv"));
+      csv::CSVReader reader(arg_parser.get("--csv"));
       auto writer = csv::make_csv_writer(output_file);
       writer << reader.get_col_names();
       csv::CSVRow row;
