@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -101,6 +102,7 @@ int main(int argc, char *argv[]) {
       .help("The column from which a match will be derived.");
   cleanup_parser.add_argument("--matching-data")
       .help("The data the column needs to match for it to be included.");
+  cleanup_parser.add_argument("--byproduct").default_value("");
   cleanup_parser.add_argument("--output").default_value("cleanup.csv");
 
   arg_parser.add_subparser(generate_parser);
@@ -233,6 +235,8 @@ int main(int argc, char *argv[]) {
       }
     }
     if (arg_parser.is_subcommand_used("cleanup")) {
+
+      std::map<std::string, uint> user_map;
       std::ofstream output_file(cleanup_parser.get("--output"));
       csv::CSVReader reader(arg_parser.get("--csv"));
       auto writer = csv::make_csv_writer(output_file);
@@ -243,6 +247,15 @@ int main(int argc, char *argv[]) {
           // in a try catch
           for (csv::CSVRow row
                : reader) {
+            if (cleanup_parser.get("--byproduct") != "") {
+              if (user_map.find(
+                      row[cleanup_parser.get("--matching-column")].get()) ==
+                  user_map.end()) {
+                user_map[row[cleanup_parser.get("--matching-column")].get()] =
+                    0;
+              }
+              user_map[row[cleanup_parser.get("--matching-column")].get()]++;
+            }
             // check if row should be included
             if (row[cleanup_parser.get("--matching-column")].get() ==
                 cleanup_parser.get("--matching-data")) {
@@ -256,6 +269,21 @@ int main(int argc, char *argv[]) {
               writer << row_data;
             }
           })
+      if (cleanup_parser.get("--byproduct") != "") {
+        std::ofstream byproduct(cleanup_parser.get("--byproduct"));
+        auto byproduct_writer = csv::make_csv_writer(byproduct);
+        byproduct_writer << std::vector<std::string>{"Username", "Instances"};
+        for (auto pair : user_map) {
+          byproduct_writer << std::vector<std::string>{
+              pair.first, std::to_string(pair.second)};
+        }
+        printf("Wrote byproduct data to %s\n",
+               cleanup_parser.get("--byproduct").c_str());
+        byproduct.close();
+      }
+
+      printf("Wrote sectioned data to %s\n",
+             cleanup_parser.get("--output").c_str());
       output_file.close();
     }
   } catch (const std::exception &err) {
