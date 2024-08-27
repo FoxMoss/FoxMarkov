@@ -1,6 +1,7 @@
 add_executable(foxkov
  main.cpp 
  node.cpp
+ scum.cpp
 )
 
 include(FetchContent)
@@ -10,7 +11,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(argparse)
 
-target_link_libraries(foxkov argparse)
+target_link_libraries(foxkov argparse sqlite3)
 
 add_custom_command(TARGET foxkov POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy

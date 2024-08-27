@@ -1,3 +1,4 @@
+#include "main.hpp"
 #include "csv.hpp"
 #include "node.h"
 #include <algorithm>
@@ -33,10 +34,10 @@
       .implicit_value(true)                                                    \
       .nargs(0);
 
-enum RETURN_TYPE { RETURN_POSITIVE, RETURN_ZERO };
+void process_scum(std::string file);
 
 void unwrap_exit(int exit_value, const char *exit_str,
-                 RETURN_TYPE return_type = RETURN_POSITIVE) {
+                 RETURN_TYPE return_type) {
   bool should_exit = false;
   switch (return_type) {
   case RETURN_POSITIVE:
@@ -73,6 +74,12 @@ int main(int argc, char *argv[]) {
             "infinite loop.");
   generate_parser.add_description("Traverse the chain");
 
+  argparse::ArgumentParser scum_parser("scum", "",
+                                       argparse::default_arguments::none);
+  ADD_HELP(scum_parser);
+  scum_parser.add_argument("db-file");
+  scum_parser.add_description("Crunch the numbers for a scumdb database.");
+
   argparse::ArgumentParser stenography_parser(
       "stenography", "", argparse::default_arguments::none);
   ADD_HELP(stenography_parser);
@@ -108,6 +115,7 @@ int main(int argc, char *argv[]) {
   arg_parser.add_subparser(generate_parser);
   arg_parser.add_subparser(stenography_parser);
   arg_parser.add_subparser(cleanup_parser);
+  arg_parser.add_subparser(scum_parser);
 
   arg_parser.add_description(
       "Markov chains are models that encode probability. This project creates "
@@ -126,6 +134,11 @@ int main(int argc, char *argv[]) {
   }
 
   try {
+    if (arg_parser.is_subcommand_used("scum")) {
+      process_scum(scum_parser.get("db-file"));
+      return 0;
+    }
+
     if (!arg_parser.is_subcommand_used("cleanup")) {
       csv::CSVReader reader(arg_parser.get("--csv"));
 
