@@ -114,6 +114,7 @@ public:
     return connection->second / total_weight;
   }
 
-private:
   std::map<std::string, Node *> nodes;
+
+private:
 };
