@@ -3,9 +3,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <eve/eve.hpp>
+#include <iostream>
 #include <vector>
 
 #include "../src/node.h"
+#include "eve/arch/cardinals.hpp"
 #include "eve/module/core/regular/if_else.hpp"
 #include "eve/module/core/regular/is_greater.hpp"
 
@@ -45,6 +47,8 @@ int main() {
   eve::wide<double> simd_weight(weight);
   eve::wide<double> simd_results(results);
   eve::wide<uint64_t> simd_result_keys(result_keys);
+
+  std::cout << simd_hash_2.size() << "\n";
 
   std::vector<std::string> compare_src = {"\n", "i ", "am ", "\n"};
 
