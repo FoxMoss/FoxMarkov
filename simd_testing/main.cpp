@@ -2,10 +2,6 @@
 #include "fast_chain.h"
 #include "node.h"
 #include <chrono>
-#include <cstdint>
-#include <cstdio>
-#include <immintrin.h>
-#include <vector>
 
 int main() {
 
@@ -22,75 +18,35 @@ int main() {
   }
 
   auto start = std::chrono::system_clock::now();
-  // first test
 
   FastChain chain;
   for (auto line : contents) {
     chain.add_line(line);
   }
 
-  uint count = 0;
-  float total = 0;
   for (auto line : contents) {
     auto tokens = proccessLine(line);
-
-    auto iter = tokens.begin();
-    while (1) {
-      uint index = 0;
-      union results {
-        float in_values[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-        float out_values[8];
-      } results;
-      float divisors[8] = {1, 1, 1, 1, 1, 1, 1, 1};
-
-      for (; iter + 1 != tokens.end(); iter++) {
-        auto a_hash = word_hash(*iter);
-        auto b_hash = word_hash(*(iter + 1));
-
-        results.in_values[index] =
-            (float)chain.hash_to_children[a_hash][b_hash];
-        divisors[index] = (float)chain.hash_to_child_total[a_hash];
-        count++;
-        if (index >= 8)
-          break;
-      }
-
-      __m256 values_simd = _mm256_setr_ps(
-          results.in_values[0], results.in_values[1], results.in_values[2],
-          results.in_values[3], results.in_values[4], results.in_values[5],
-          results.in_values[6], results.in_values[7]);
-      __m256 divisors_simd =
-          _mm256_setr_ps(divisors[0], divisors[1], divisors[2], divisors[3],
-                         divisors[4], divisors[5], divisors[6], divisors[7]);
-      auto results_simd = _mm256_div_ps(values_simd, divisors_simd);
-
-      _mm256_storeu_ps(results.out_values, results_simd);
-      for (uint i = 0; i < 8; i++) {
-        total += results.out_values[i];
-      }
-      if (index != 7)
-        break;
+    for (auto iter = tokens.begin(); iter + 1 != tokens.end(); iter++) {
+      auto a_hash = word_hash(*iter);
+      auto b_hash = word_hash(*(iter + 1));
+      chain.match_tokens(a_hash, b_hash);
     }
   }
 
   auto end = std::chrono::system_clock::now();
 
   std::chrono::duration<double> elapsed_seconds = end - start;
+
   std::cout << "FastChain: " << elapsed_seconds.count() << "s\n";
-  printf("result %f\n\n", total / count);
 
   start = std::chrono::system_clock::now();
-  // second test
 
   Chain slow_chain(contents);
 
-  count = 0;
-  total = 0;
   for (auto line : contents) {
     auto tokens = proccessLine(line);
     for (auto iter = tokens.begin(); iter + 1 != tokens.end(); iter++) {
-      total += slow_chain.GetNormalizedWeight(*iter, *(iter + 1));
-      count++;
+      slow_chain.GetNormalizedWeight(*iter, *(iter + 1));
     }
   }
 
@@ -98,8 +54,7 @@ int main() {
 
   elapsed_seconds = end - start;
 
-  std::cout << "Chain: " << elapsed_seconds.count() << "s\n";
-  printf("result %f\n\n", total / count);
+  std::cout << "slow Chain: " << elapsed_seconds.count() << "s\n";
 
   // return 0;
   // print_bytes(word_hash("ball "));
