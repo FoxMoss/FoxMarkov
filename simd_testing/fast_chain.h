@@ -66,6 +66,7 @@ public:
   std::unordered_map<uint32_t, std::string> hash_to_string;
   std::unordered_map<uint32_t, std::unordered_map<uint32_t, uint>>
       hash_to_children;
+  std::unordered_map<uint32_t, uint> hash_to_child_total;
   FastChain() {}
   void add_line(std::string line) {
     std::vector<std::string> source = proccessLine(line);
@@ -75,6 +76,7 @@ public:
       hash_to_string[token] = *iter.base();
       auto next_token = word_hash(*(iter + 1).base());
       hash_to_children[token][next_token]++;
+      hash_to_child_total[token]++;
     }
   }
   std::string generate() {
