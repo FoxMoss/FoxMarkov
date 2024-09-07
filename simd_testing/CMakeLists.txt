@@ -4,14 +4,10 @@ add_executable(simd
 )
 
 include(FetchContent)
-FetchContent_Declare(
-    eve
-    GIT_REPOSITORY https://github.com/jfalcou/eve.git
-    GIT_TAG main
-)
-FetchContent_MakeAvailable(eve)
 
-target_link_libraries(simd eve::eve)
+include_directories(../src/)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ")
 
 add_custom_command(TARGET simd POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy

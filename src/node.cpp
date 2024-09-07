@@ -30,6 +30,8 @@ std::vector<std::string> proccessLine(std::string line,
     source->push_back(token);
   }
 
+  source->push_back("\n");
+
   if (source_pass != NULL) {
     return {};
   }
