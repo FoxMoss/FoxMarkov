@@ -7,7 +7,7 @@ include(FetchContent)
 
 include_directories(../src/)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx -mavx2 ")
 
 add_custom_command(TARGET simd POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
