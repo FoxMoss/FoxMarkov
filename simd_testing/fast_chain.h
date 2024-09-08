@@ -114,18 +114,8 @@ public:
     return ret;
   }
   float match_tokens(uint32_t a, uint32_t b) {
-    uint total = 0;
-    uint match = 0;
-
-    for (auto child : hash_to_children[a]) {
-      total += child.second;
-      if (child.first == b) {
-        match = child.second;
-      }
-    }
-    if (total == 0) {
+    if (hash_to_child_total[a] == 0)
       return 0;
-    }
-    return (float)match / total;
+    return (float)hash_to_children[a][b] / hash_to_child_total[a];
   }
 };

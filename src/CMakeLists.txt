@@ -4,6 +4,8 @@ add_executable(foxkov
  scum.cpp
 )
 
+include_directories(../simd_testing/)
+
 include(FetchContent)
 FetchContent_Declare(
     argparse

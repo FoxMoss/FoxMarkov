@@ -1,4 +1,5 @@
 #include "csv.hpp"
+#include "fast_chain.h"
 #include "main.hpp"
 #include "node.h"
 #include "threadspool.hpp"
@@ -67,9 +68,12 @@ void process_scum(std::string file) {
   for (auto pair : users) {
     complete++;
     spool.push_thread([=]() {
-      Chain chain(pair.second);
-      for (auto test_pair : users) {
+      FastChain chain;
+      for (auto line : pair.second) {
+        chain.add_line(line);
+      }
 
+      for (auto test_pair : users) {
         if (test_pair.first == pair.first) {
           continue;
         }
@@ -85,8 +89,8 @@ void process_scum(std::string file) {
 
           for (auto iter = proccesed.begin(); iter != proccesed.end() - 1;
                iter++) {
-            row_weight +=
-                chain.GetNormalizedWeight(*iter.base(), *(iter + 1).base());
+            row_weight += chain.match_tokens(word_hash(*iter.base()),
+                                             word_hash(*(iter + 1).base()));
             row_weight_length++;
           }
 
