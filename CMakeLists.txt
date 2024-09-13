@@ -23,4 +23,5 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native -ffast
 
 add_subdirectory(src)
 add_subdirectory(simd_testing)
+add_subdirectory(csvtool)
 

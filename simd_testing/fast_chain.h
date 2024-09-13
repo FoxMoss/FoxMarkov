@@ -1,6 +1,6 @@
 #pragma once
 
-#include "node.h"
+#include "../src/node.h"
 #include <algorithm>
 #include <bitset>
 #include <cmath>
