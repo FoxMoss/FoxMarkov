@@ -9,7 +9,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(argparse)
 
-target_link_libraries(csvsort argparse)
+target_link_libraries(csvsort argparse curl)
 
 add_custom_command(TARGET csvsort POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
