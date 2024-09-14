@@ -1,9 +1,14 @@
+#include "../simd_testing/fast_chain.h"
 #include "../src/csv.hpp"
 #include <argparse/argparse.hpp>
+#include <cstdint>
 #include <cstdio>
 #include <exception>
 #include <fstream>
 #include <iostream>
+#include <string>
+#include <sys/types.h>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -22,30 +27,48 @@ int main(int argc, char *argv[]) {
   csv::CSVReader reader(reader_stream);
   csv::CSVRow row;
 
-  std::vector<std::pair<float, std::string>> top_rows;
+  uint size = 40;
 
-  for (auto col : reader.get_col_names()) {
-    printf("%s\n", col.c_str());
-  }
+  std::unordered_map<uint64_t, float> rows;
+  std::unordered_map<uint32_t, std::string> map;
 
   while (reader.read_row(row)) {
     float val = 0;
     if (row["weight"].is_float()) {
       val = row["weight"].get<float>();
     }
-    if (top_rows.size() < 10) {
-      top_rows.push_back({val, row.to_json()});
+    auto word1_hash = word_hash(row["id1"].get<std::string>());
+    map[word1_hash] = row["id1"].get<std::string>();
+    auto word2_hash = word_hash(row["id2"].get<std::string>());
+    map[word2_hash] = row["id2"].get<std::string>();
+
+    uint64_t quick_hash = 0;
+    if (word1_hash > word2_hash) {
+      quick_hash = combine_hash(word2_hash, word1_hash);
     } else {
-      for (auto iter = top_rows.begin(); iter != top_rows.end(); iter++) {
-        if (iter->first < val) {
-          iter->first = val;
-          iter->second = row.to_json();
-          break;
-        }
+      quick_hash = combine_hash(word1_hash, word2_hash);
+    }
+
+    rows[quick_hash] += val;
+  }
+
+  std::vector<std::pair<float, uint64_t>> top_rows;
+
+  for (auto row : rows) {
+    if (top_rows.size() < size) {
+      top_rows.push_back({row.second, row.first});
+    }
+    for (auto &top_row : top_rows) {
+      if (row.second > top_row.first) {
+        top_row.second = row.first;
+        top_row.first = row.second;
+        break;
       }
     }
   }
+
   for (auto iter = top_rows.begin(); iter != top_rows.end(); iter++) {
-    printf("%s\n", iter->second.c_str());
+    printf("%f, %s, %s\n", iter->first, map[(uint32_t)iter->second].c_str(),
+           map[iter->second >> sizeof(uint32_t) * 8].c_str());
   }
 }
