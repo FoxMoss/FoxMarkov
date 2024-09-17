@@ -80,22 +80,22 @@ int main(int argc, char *argv[]) {
   scum_parser.add_argument("db-file");
   scum_parser.add_description("Crunch the numbers for a scumdb database.");
 
-  argparse::ArgumentParser stenography_parser(
-      "stenography", "", argparse::default_arguments::none);
-  ADD_HELP(stenography_parser);
-  stenography_parser.add_description(
+  argparse::ArgumentParser compare_parser("compare", "",
+                                          argparse::default_arguments::none);
+  ADD_HELP(compare_parser);
+  compare_parser.add_description(
       "Identify similarity between data and the chain");
-  stenography_parser.add_argument("csv").remaining().help(
+  compare_parser.add_argument("csv").remaining().help(
       "The CSV(s) that will be compared to the chain.");
-  stenography_parser.add_argument("--column")
+  compare_parser.add_argument("--column")
       .default_value("Content")
       .help("The column of the CSV of which will used for chain comparision, "
             "all other columns will be ignored.");
   ;
-  stenography_parser.add_argument("--overview-log")
+  compare_parser.add_argument("--overview-log")
       .default_value("")
       .help("Creates a CSV of the targets and their average weight.");
-  stenography_parser.add_argument("--detailed-log")
+  compare_parser.add_argument("--detailed-log")
       .default_value("")
       .help("Creates a CSV of all targets with their individual line weight "
             "averages.");
@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
   cleanup_parser.add_argument("--output").default_value("cleanup.csv");
 
   arg_parser.add_subparser(generate_parser);
-  arg_parser.add_subparser(stenography_parser);
+  arg_parser.add_subparser(compare_parser);
   arg_parser.add_subparser(cleanup_parser);
   arg_parser.add_subparser(scum_parser);
 
@@ -158,11 +158,11 @@ int main(int argc, char *argv[]) {
           printf("%s", suggestion.value().c_str());
         }
         printf("\n");
-      } else if (arg_parser.is_subcommand_used("stenography")) {
+      } else if (arg_parser.is_subcommand_used("compare")) {
+
         std::vector<std::vector<std::string>> overview;
         std::map<std::string, std::vector<std::string>> detailed;
-        for (auto file :
-             stenography_parser.get<std::vector<std::string>>("csv")) {
+        for (auto file : compare_parser.get<std::vector<std::string>>("csv")) {
           csv::CSVReader sten_reader(file);
 
           float total_weight = 0;
@@ -170,7 +170,7 @@ int main(int argc, char *argv[]) {
           while (sten_reader.read_row(row)) {
             std::vector<std::string> proccesed;
             TRY_UNWRAP(proccesed = proccessLine(
-                           row[stenography_parser.get("--column")].get());)
+                           row[compare_parser.get("--column")].get());)
 
             float row_weight = 0;
             uint row_weight_length = 0;
@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) {
               continue;
             }
 
-            if (stenography_parser.get("--detailed-log") != "") {
+            if (compare_parser.get("--detailed-log") != "") {
               if (detailed.find(file) == detailed.end()) {
                 detailed[file] = {};
               }
@@ -201,14 +201,14 @@ int main(int argc, char *argv[]) {
           }
           printf("Contents of %s matches weights %f/%f\n", file.c_str(),
                  total_weight / weight_length, 1.0);
-          if (stenography_parser.get("--overview-log") != "") {
+          if (compare_parser.get("--overview-log") != "") {
             overview.push_back(
                 {file, std::to_string(total_weight / weight_length)});
           }
         }
 
-        if (stenography_parser.get("--detailed-log") != "") {
-          std::ofstream output_file(stenography_parser.get("--detailed-log"));
+        if (compare_parser.get("--detailed-log") != "") {
+          std::ofstream output_file(compare_parser.get("--detailed-log"));
           auto writer = csv::make_csv_writer(output_file);
           std::vector<std::string> keys = {"Test"};
           size_t max_length = 0;
@@ -227,12 +227,12 @@ int main(int argc, char *argv[]) {
             writer << row;
           }
           printf("Wrote detailed results to %s\n",
-                 stenography_parser.get("--detailed-log").c_str());
+                 compare_parser.get("--detailed-log").c_str());
           output_file.close();
         }
 
-        if (stenography_parser.get("--overview-log") != "") {
-          std::ofstream output_file(stenography_parser.get("--overview-log"));
+        if (compare_parser.get("--overview-log") != "") {
+          std::ofstream output_file(compare_parser.get("--overview-log"));
           auto writer = csv::make_csv_writer(output_file);
           writer << std::vector<std::string>{"Filename", "Weight"};
           for (auto result : overview) {
@@ -242,7 +242,7 @@ int main(int argc, char *argv[]) {
             writer << result;
           }
           printf("Wrote overview of results to %s\n",
-                 stenography_parser.get("--overview-log").c_str());
+                 compare_parser.get("--overview-log").c_str());
           output_file.close();
         }
       }

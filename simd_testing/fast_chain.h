@@ -118,4 +118,45 @@ public:
       return 0;
     return (float)hash_to_children[a][b] / hash_to_child_total[a];
   }
+
+  const uint min_occurence = 2;
+  std::optional<float> compare_chain(FastChain chain) {
+    float total = 0;
+    uint count = 0;
+    float lowest = 1;
+    uint32_t lowest_hash1 = 0;
+    uint32_t lowest_hash2 = 0;
+    for (auto pair : hash_to_children) {
+      float subtotal = 0;
+      uint subcount = 0;
+      for (auto child : pair.second) {
+        if (hash_to_children[pair.first][child.first] < min_occurence ||
+            child.second < min_occurence) {
+          continue;
+        }
+        float prediction = match_tokens(pair.first, child.first);
+        float outcome = chain.match_tokens(pair.first, child.first);
+        float difference = fabs(outcome - prediction);
+        subtotal += difference;
+        subcount++;
+
+        if (difference < lowest) {
+          lowest = difference;
+          lowest_hash1 = pair.first;
+          lowest_hash2 = child.first;
+        }
+      }
+      total += subtotal;
+      count++;
+    }
+
+    printf("%s -> %s : %f\n", hash_to_string[lowest_hash1].c_str(),
+           hash_to_string[lowest_hash2].c_str(), lowest);
+
+    if (count == 0) {
+      return {};
+    }
+
+    return total / count;
+  }
 };
