@@ -1,5 +1,6 @@
 #include "main.hpp"
 #include "csv.hpp"
+#include "fast_chain.h"
 #include "node.h"
 #include <algorithm>
 #include <argparse/argparse.hpp>
@@ -139,7 +140,7 @@ int main(int argc, char *argv[]) {
       return 0;
     }
 
-    if (!arg_parser.is_subcommand_used("cleanup")) {
+    if (arg_parser.is_subcommand_used("generate")) {
       csv::CSVReader reader(arg_parser.get("--csv"));
 
       std::vector<std::string> contents = {};
@@ -149,104 +150,87 @@ int main(int argc, char *argv[]) {
       }
       Chain chain(contents);
 
-      if (arg_parser.is_subcommand_used("generate")) {
-        std::optional<std::string> suggestion = "\n";
-        while ((suggestion = chain.Suggest(
-                    suggestion.value(), generate_parser.is_used("--perfect")))
-                   .has_value() &&
-               suggestion != "\n") {
-          printf("%s", suggestion.value().c_str());
-        }
+      std::optional<std::string> suggestion = "\n";
+      while ((suggestion = chain.Suggest(suggestion.value(),
+                                         generate_parser.is_used("--perfect")))
+                 .has_value() &&
+             suggestion != "\n") {
+        printf("%s", suggestion.value().c_str());
         printf("\n");
-      } else if (arg_parser.is_subcommand_used("compare")) {
-
-        std::vector<std::vector<std::string>> overview;
-        std::map<std::string, std::vector<std::string>> detailed;
-        for (auto file : compare_parser.get<std::vector<std::string>>("csv")) {
-          csv::CSVReader sten_reader(file);
-
-          float total_weight = 0;
-          uint weight_length = 0;
-          while (sten_reader.read_row(row)) {
-            std::vector<std::string> proccesed;
-            TRY_UNWRAP(proccesed = proccessLine(
-                           row[compare_parser.get("--column")].get());)
-
-            float row_weight = 0;
-            uint row_weight_length = 0;
-
-            // get every token edge weight
-            for (auto iter = proccesed.begin(); iter != proccesed.end() - 1;
-                 iter++) {
-              row_weight +=
-                  chain.GetNormalizedWeight(*iter.base(), *(iter + 1).base());
-              row_weight_length++;
-            }
-
-            // fix dividing by zero issues
-            if (row_weight_length == 0) {
-              continue;
-            }
-
-            if (compare_parser.get("--detailed-log") != "") {
-              if (detailed.find(file) == detailed.end()) {
-                detailed[file] = {};
-              }
-              detailed[file].push_back(
-                  std::to_string(row_weight / row_weight_length));
-            }
-
-            total_weight += row_weight / row_weight_length;
-            weight_length++;
-          }
-          printf("Contents of %s matches weights %f/%f\n", file.c_str(),
-                 total_weight / weight_length, 1.0);
-          if (compare_parser.get("--overview-log") != "") {
-            overview.push_back(
-                {file, std::to_string(total_weight / weight_length)});
-          }
-        }
-
-        if (compare_parser.get("--detailed-log") != "") {
-          std::ofstream output_file(compare_parser.get("--detailed-log"));
-          auto writer = csv::make_csv_writer(output_file);
-          std::vector<std::string> keys = {"Test"};
-          size_t max_length = 0;
-          for (auto pair : detailed) {
-            keys.push_back(pair.first);
-            max_length = std::max(pair.second.size(), max_length);
-          }
-          writer << keys;
-          for (size_t index = 0; index < max_length; index++) {
-            std::vector<std::string> row = {std::to_string(index)};
-            for (auto pair : detailed) {
-              if (pair.second.size() >= index + 1) {
-                row.push_back(pair.second[index]);
-              }
-            }
-            writer << row;
-          }
-          printf("Wrote detailed results to %s\n",
-                 compare_parser.get("--detailed-log").c_str());
-          output_file.close();
-        }
-
-        if (compare_parser.get("--overview-log") != "") {
-          std::ofstream output_file(compare_parser.get("--overview-log"));
-          auto writer = csv::make_csv_writer(output_file);
-          writer << std::vector<std::string>{"Filename", "Weight"};
-          for (auto result : overview) {
-            if (result[0] == arg_parser.get("--csv")) {
-              result[0] = "Control";
-            }
-            writer << result;
-          }
-          printf("Wrote overview of results to %s\n",
-                 compare_parser.get("--overview-log").c_str());
-          output_file.close();
-        }
       }
     }
+
+    if (arg_parser.is_subcommand_used("compare")) {
+
+      csv::CSVReader reader(arg_parser.get("--csv"));
+      csv::CSVRow row;
+      FastChain original_chain;
+
+      while (reader.read_row(row)) {
+        original_chain.add_line(row[arg_parser.get("--column")].get());
+      }
+
+      std::vector<std::vector<std::string>> overview;
+      std::map<std::string, std::vector<std::string>> detailed;
+      for (auto file : compare_parser.get<std::vector<std::string>>("csv")) {
+        csv::CSVReader sten_reader(file);
+        FastChain compare_chain;
+
+        while (sten_reader.read_row(row)) {
+          compare_chain.add_line(row[compare_parser.get("--column")].get());
+        }
+
+        auto result = compare_chain.compare_chain(original_chain);
+        if (!result.has_value())
+          continue;
+
+        printf("Contents of %s matches weights %f/%f\n", file.c_str(),
+               result.value(), 1.0);
+        if (compare_parser.get("--overview-log") != "") {
+          overview.push_back({file, std::to_string(result.value())});
+        }
+      }
+
+      if (compare_parser.get("--detailed-log") != "") {
+        std::ofstream output_file(compare_parser.get("--detailed-log"));
+        auto writer = csv::make_csv_writer(output_file);
+        std::vector<std::string> keys = {"Test"};
+        size_t max_length = 0;
+        for (auto pair : detailed) {
+          keys.push_back(pair.first);
+          max_length = std::max(pair.second.size(), max_length);
+        }
+        writer << keys;
+        for (size_t index = 0; index < max_length; index++) {
+          std::vector<std::string> row = {std::to_string(index)};
+          for (auto pair : detailed) {
+            if (pair.second.size() >= index + 1) {
+              row.push_back(pair.second[index]);
+            }
+          }
+          writer << row;
+        }
+        printf("Wrote detailed results to %s\n",
+               compare_parser.get("--detailed-log").c_str());
+        output_file.close();
+      }
+
+      if (compare_parser.get("--overview-log") != "") {
+        std::ofstream output_file(compare_parser.get("--overview-log"));
+        auto writer = csv::make_csv_writer(output_file);
+        writer << std::vector<std::string>{"Filename", "Weight"};
+        for (auto result : overview) {
+          if (result[0] == arg_parser.get("--csv")) {
+            result[0] = "Control";
+          }
+          writer << result;
+        }
+        printf("Wrote overview of results to %s\n",
+               compare_parser.get("--overview-log").c_str());
+        output_file.close();
+      }
+    } // end compare
+
     if (arg_parser.is_subcommand_used("cleanup")) {
 
       std::map<std::string, uint> user_map;

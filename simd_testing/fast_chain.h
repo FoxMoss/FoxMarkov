@@ -119,7 +119,7 @@ public:
     return (float)hash_to_children[a][b] / hash_to_child_total[a];
   }
 
-  const uint min_occurence = 2;
+  const uint min_occurence = 5;
   std::optional<float> compare_chain(FastChain chain) {
     float total = 0;
     uint count = 0;
