@@ -146,7 +146,9 @@ public:
           lowest_hash2 = child.first;
         }
       }
-      total += subtotal;
+      if (subcount == 0) // -nan
+        continue;
+      total += subtotal / subcount;
       count++;
     }
 

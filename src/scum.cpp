@@ -25,12 +25,11 @@ void process_scum(std::string file) {
       sqlite3_prepare_v2(db, "select * from already_searched", -1, &stmt, NULL),
       "Search targets failed", RETURN_ZERO);
 
-  std::map<std::string, std::vector<std::string>> users;
+  std::map<std::string, FastChain> users;
   uint count = 0;
   while (sqlite3_step(stmt) == SQLITE_ROW) {
     const char *raw_id = (const char *)sqlite3_column_text(stmt, 0);
     std::string id(raw_id);
-    users[id] = {};
 
     sqlite3_stmt *message_stmt;
 
@@ -45,7 +44,7 @@ void process_scum(std::string file) {
     while (sqlite3_step(message_stmt) == SQLITE_ROW && length < 1000) {
       length++;
       const char *message = (const char *)sqlite3_column_text(message_stmt, 0);
-      users[id].push_back(message);
+      users[id].add_line(message);
     }
 
     if (length < 500) {
@@ -68,43 +67,21 @@ void process_scum(std::string file) {
   for (auto pair : users) {
     complete++;
     spool.push_thread([=]() {
-      FastChain chain;
-      for (auto line : pair.second) {
-        chain.add_line(line);
-      }
+      FastChain chain = pair.second;
 
       for (auto test_pair : users) {
         if (test_pair.first == pair.first) {
           continue;
         }
 
-        float total_weight = 0;
-        uint weight_length = 0;
-
-        for (auto message : test_pair.second) {
-          auto proccesed = proccessLine(message);
-
-          float row_weight = 0;
-          uint row_weight_length = 0;
-
-          for (auto iter = proccesed.begin(); iter != proccesed.end() - 1;
-               iter++) {
-            row_weight += chain.match_tokens(word_hash(*iter.base()),
-                                             word_hash(*(iter + 1).base()));
-            row_weight_length++;
-          }
-
-          if (row_weight_length == 0) {
-            continue;
-          }
-
-          total_weight += row_weight / row_weight_length;
-          weight_length++;
+        auto total_weight = test_pair.second.compare_chain(chain);
+        if (!total_weight.has_value()) {
+          continue;
         }
+
         writer_lock->lock();
         *writer << std::vector<std::string>{
-            std::to_string(total_weight / weight_length), pair.first,
-            test_pair.first};
+            std::to_string(total_weight.value()), pair.first, test_pair.first};
         writer_lock->unlock();
       }
       printf("%f%% done\n", ((float)complete / total) * 100);
