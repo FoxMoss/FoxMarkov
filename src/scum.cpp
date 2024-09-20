@@ -25,11 +25,12 @@ void process_scum(std::string file) {
       sqlite3_prepare_v2(db, "select * from already_searched", -1, &stmt, NULL),
       "Search targets failed", RETURN_ZERO);
 
-  std::map<std::string, FastChain> users;
+  std::map<std::string, std::vector<std::string>> users;
   uint count = 0;
   while (sqlite3_step(stmt) == SQLITE_ROW) {
     const char *raw_id = (const char *)sqlite3_column_text(stmt, 0);
     std::string id(raw_id);
+    users[id] = {};
 
     sqlite3_stmt *message_stmt;
 
@@ -44,7 +45,7 @@ void process_scum(std::string file) {
     while (sqlite3_step(message_stmt) == SQLITE_ROW && length < 1000) {
       length++;
       const char *message = (const char *)sqlite3_column_text(message_stmt, 0);
-      users[id].add_line(message);
+      users[id].push_back(message);
     }
 
     if (length < 500) {
@@ -67,21 +68,31 @@ void process_scum(std::string file) {
   for (auto pair : users) {
     complete++;
     spool.push_thread([=]() {
-      FastChain chain = pair.second;
+      FastChain chain;
+      for (auto line : pair.second) {
+        chain.add_line(line);
+      }
 
       for (auto test_pair : users) {
+
         if (test_pair.first == pair.first) {
           continue;
         }
 
-        auto total_weight = test_pair.second.compare_chain(chain);
-        if (!total_weight.has_value()) {
+        FastChain compare_chain;
+        for (auto line : test_pair.second) {
+          compare_chain.add_line(line);
+        }
+
+        auto res = compare_chain.compare_chain(chain);
+
+        if (!res.has_value()) {
           continue;
         }
 
         writer_lock->lock();
-        *writer << std::vector<std::string>{
-            std::to_string(total_weight.value()), pair.first, test_pair.first};
+        *writer << std::vector<std::string>{std::to_string(res.value()),
+                                            pair.first, test_pair.first};
         writer_lock->unlock();
       }
       printf("%f%% done\n", ((float)complete / total) * 100);
