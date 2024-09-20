@@ -68,12 +68,7 @@ int main(int argc, char *argv[]) {
     auto word2_hash = word_hash(row["id2"].get<std::string>());
     map[word2_hash] = row["id2"].get<std::string>();
 
-    uint64_t quick_hash = 0;
-    if (word1_hash > word2_hash) {
-      quick_hash = combine_hash(word2_hash, word1_hash);
-    } else {
-      quick_hash = combine_hash(word1_hash, word2_hash);
-    }
+    uint64_t quick_hash = quick_hash = combine_hash(word1_hash, word2_hash);
 
     rows[quick_hash] += val;
   }
@@ -85,7 +80,7 @@ int main(int argc, char *argv[]) {
       top_rows.push_back({row.second, row.first});
     }
     for (auto &top_row : top_rows) {
-      if (row.second > top_row.first) {
+      if (row.second < top_row.first) {
         top_row.second = row.first;
         top_row.first = row.second;
         break;
