@@ -163,6 +163,9 @@ public:
     }
 
     printf("count: %i\n", top_count);
+    if (top_count < 10) {
+      return {};
+    }
 
     if (count == 0) {
       return {};
