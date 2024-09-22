@@ -27,6 +27,7 @@ static uint32_t word_hash(std::string word) {
     hash = hash * PRIME;
     hash = hash ^ byte;
   }
+
   return hash;
 }
 
@@ -119,8 +120,10 @@ public:
     return (float)hash_to_children[a][b] / hash_to_child_total[a];
   }
 
-  const uint min_occurence = 5;
+  const uint min_occurence = 10;
   std::optional<float> compare_chain(FastChain chain) {
+    uint top_count = 0;
+
     float total = 0;
     uint count = 0;
     float lowest = 1;
@@ -131,7 +134,7 @@ public:
       uint subcount = 0;
       for (auto child : pair.second) {
         if (hash_to_children[pair.first][child.first] < min_occurence ||
-            child.second < min_occurence) {
+            chain.hash_to_children[pair.first][child.first] < min_occurence) {
           continue;
         }
         float prediction = match_tokens(pair.first, child.first);
@@ -139,12 +142,19 @@ public:
         float difference = fabs(outcome - prediction);
         subtotal += difference;
         subcount++;
+        top_count++;
 
         if (difference < lowest) {
           lowest = difference;
           lowest_hash1 = pair.first;
           lowest_hash2 = child.first;
         }
+
+        // printf("%f for '%s' : %i, '%s' : %i\n", difference,
+        //        hash_to_string[pair.first].c_str(), pair.first,
+        //        chain.hash_to_string[child.first].c_str(), child.first);
+        // printf("hashed: '%i' rehashed: '%i'\n", child.first,
+        //        word_hash(chain.hash_to_string[child.first]));
       }
       if (subcount == 0) // -nan
         continue;
@@ -152,8 +162,7 @@ public:
       count++;
     }
 
-    printf("%s -> %s : %f\n", hash_to_string[lowest_hash1].c_str(),
-           hash_to_string[lowest_hash2].c_str(), lowest);
+    printf("count: %i\n", top_count);
 
     if (count == 0) {
       return {};
