@@ -185,9 +185,9 @@ int main(int argc, char *argv[]) {
           continue;
 
         printf("Contents of %s matches weights %f/%f\n", file.c_str(),
-               result.value(), 1.0);
+               result.value().first, 1.0);
         if (compare_parser.get("--overview-log") != "") {
-          overview.push_back({file, std::to_string(result.value())});
+          overview.push_back({file, std::to_string(result.value().first)});
         }
       }
 

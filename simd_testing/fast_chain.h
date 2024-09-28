@@ -15,6 +15,7 @@
 #include <string>
 #include <sys/types.h>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 // https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
@@ -120,8 +121,8 @@ public:
     return (float)hash_to_children[a][b] / hash_to_child_total[a];
   }
 
-  const uint min_occurence = 10;
-  std::optional<float> compare_chain(FastChain chain) {
+  const uint min_occurence = 5;
+  std::optional<std::pair<float, uint>> compare_chain(FastChain chain) {
     uint top_count = 0;
 
     float total = 0;
@@ -162,7 +163,6 @@ public:
       count++;
     }
 
-    printf("count: %i\n", top_count);
     if (top_count < 10) {
       return {};
     }
@@ -171,6 +171,6 @@ public:
       return {};
     }
 
-    return total / count;
+    return std::pair{total / count, top_count};
   }
 };

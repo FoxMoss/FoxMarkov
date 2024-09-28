@@ -60,7 +60,7 @@ void process_scum(std::string file) {
   std::ofstream output_file("scum_crunched.csv");
   csv::CSVWriter<std::basic_ofstream<char>> *writer =
       new csv::CSVWriter<std::basic_ofstream<char>>(output_file);
-  *writer << std::vector<std::string>{"weight", "id1", "id2"};
+  *writer << std::vector<std::string>{"weight", "id1", "id2", "count"};
   std::mutex *writer_lock = new std::mutex();
 
   uint complete = 0;
@@ -91,8 +91,9 @@ void process_scum(std::string file) {
         }
 
         writer_lock->lock();
-        *writer << std::vector<std::string>{std::to_string(res.value()),
-                                            pair.first, test_pair.first};
+        *writer << std::vector<std::string>{std::to_string(res.value().first),
+                                            pair.first, test_pair.first,
+                                            std::to_string(res.value().second)};
         writer_lock->unlock();
       }
       printf("%f%% done\n", ((float)complete / total) * 100);

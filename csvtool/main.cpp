@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
   csv::CSVReader reader(reader_stream);
   csv::CSVRow row;
 
-  uint size = 40;
+  uint size = 5;
 
   std::unordered_map<uint64_t, float> rows;
   std::unordered_map<uint32_t, std::string> map;
@@ -90,10 +90,12 @@ int main(int argc, char *argv[]) {
 
   curl = curl_easy_init();
   for (auto iter = top_rows.begin(); iter != top_rows.end(); iter++) {
-    std::string person1 = get_user_webfinger(map[(uint32_t)iter->second]);
-    std::string person2 =
-        get_user_webfinger(map[iter->second >> sizeof(uint32_t) * 8]);
-    printf("%f, %s, %s\n", iter->first, person1.c_str(), person2.c_str());
+    // std::string person1 = get_user_webfinger(map[(uint32_t)iter->second]);
+    // std::string person2 =
+    //     get_user_webfinger(map[iter->second >> sizeof(uint32_t) * 8]);
+    // printf("%f, %s, %s\n", iter->first, person1.c_str(), person2.c_str());
+    printf("%f, %s, %s\n", iter->first, map[(uint32_t)iter->second].c_str(),
+           map[iter->second >> sizeof(uint32_t) * 8].c_str());
   }
   curl_easy_cleanup(curl);
 }
