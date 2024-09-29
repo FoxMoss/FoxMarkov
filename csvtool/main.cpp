@@ -14,6 +14,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <tuple>
 
 CURL *curl;
 std::string base = "https://wetdry.world/";
@@ -53,16 +54,13 @@ int main(int argc, char *argv[]) {
   csv::CSVReader reader(reader_stream);
   csv::CSVRow row;
 
-  uint size = 5;
+  uint size = 20;
 
-  std::unordered_map<uint64_t, float> rows;
+  std::unordered_map<uint64_t, std::pair<float, uint32_t>> rows;
   std::unordered_map<uint32_t, std::string> map;
 
   while (reader.read_row(row)) {
-    float val = 0;
-    if (row["weight"].is_float()) {
-      val = row["weight"].get<float>();
-    }
+     float val = std::atof(row["weight"].get<std::string>().c_str());
     auto word1_hash = word_hash(row["id1"].get<std::string>());
     map[word1_hash] = row["id1"].get<std::string>();
     auto word2_hash = word_hash(row["id2"].get<std::string>());
@@ -70,19 +68,23 @@ int main(int argc, char *argv[]) {
 
     uint64_t quick_hash = quick_hash = combine_hash(word1_hash, word2_hash);
 
-    rows[quick_hash] += val;
+    rows[quick_hash] = {val, row["count"].get<int>()};
   }
 
-  std::vector<std::pair<float, uint64_t>> top_rows;
+  std::vector<std::tuple<float, uint64_t, uint32_t>> top_rows;
 
   for (auto row : rows) {
+    if (row.second.second < 40)
+        continue;
+
     if (top_rows.size() < size) {
-      top_rows.push_back({row.second, row.first});
+      top_rows.push_back({row.second.first, row.first, row.second.second});
     }
     for (auto &top_row : top_rows) {
-      if (row.second < top_row.first) {
-        top_row.second = row.first;
-        top_row.first = row.second;
+      if (row.second.first < std::get<float>(top_row)) {
+	std::get<float>(top_row) = row.second.first;
+	std::get<uint64_t>(top_row) = row.first;
+	std::get<uint32_t>(top_row) = row.second.second;
         break;
       }
     }
@@ -90,12 +92,12 @@ int main(int argc, char *argv[]) {
 
   curl = curl_easy_init();
   for (auto iter = top_rows.begin(); iter != top_rows.end(); iter++) {
-    // std::string person1 = get_user_webfinger(map[(uint32_t)iter->second]);
-    // std::string person2 =
-    //     get_user_webfinger(map[iter->second >> sizeof(uint32_t) * 8]);
-    // printf("%f, %s, %s\n", iter->first, person1.c_str(), person2.c_str());
-    printf("%f, %s, %s\n", iter->first, map[(uint32_t)iter->second].c_str(),
-           map[iter->second >> sizeof(uint32_t) * 8].c_str());
+    std::string person1 = get_user_webfinger(map[(uint32_t)std::get<uint64_t>(*iter)]);
+    std::string person2 =
+         get_user_webfinger(map[std::get<uint64_t>(*iter) >> sizeof(uint32_t) * 8]);
+    printf("%f, %s, %s\n", std::get<float>(*iter), person1.c_str(), person2.c_str());
+    printf("%f, %s, %s, %i\n", std::get<float>(*iter), map[(uint32_t)std::get<uint64_t>(*iter)].c_str(),
+           map[std::get<uint64_t>(*iter) >> sizeof(uint32_t) * 8].c_str(), std::get<uint32_t>(*iter));
   }
   curl_easy_cleanup(curl);
 }
